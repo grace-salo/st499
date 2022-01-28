@@ -1,0 +1,43 @@
+---
+title: "st499"
+author: "Grace Salo"
+date: "1/28/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+#knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(dplyr)
+```
+
+## Import Code
+```{r import}
+data <- read.csv("simulated_data.csv")
+colnames(data) <- c('Time', 'Base', 'Noise_1', 'Noise5', 'Noise10', 'ReturnBase', 'Return1', 'Return5', 'Return10')
+head(data)
+```
+
+## Round 1: n=30
+```{r 1}
+# set starting number of obs (n)
+n <- 30
+
+# subset data into (1:n) and (n+1, end)
+d30_1 <- data[1:n, ]
+   # OR: data %>% filter(Time <= n)
+d30_2 <- data[-c(1:n), ]
+   # OR: data %>% filter(Time > n)
+
+# from first section of data, create slr
+lm(Base ~ Time, data=d30_1)
+
+
+```
+
+
+## Round 2: n=15 ?
+
+
+
+
