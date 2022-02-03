@@ -87,9 +87,10 @@ final <- final %>% mutate(res = PredReturnBase - ReturnBase)
 ggplot(data=final) + geom_histogram(aes(x=res), bins=nrow(final))
 
 # calculate MAPE
-
-
-
+a <- final %>% mutate(MAPE = abs((Base-PredBase)/Base)) %>% select(MAPE)
+MAPEbase = (1/nrow(a))*sum(a)
+# OR
+(1/nrow(final))*sum(abs((final$Base-final$PredBase)/final$Base))
 ```
 
 
@@ -216,7 +217,7 @@ ggplot(data=r1Final) + geom_histogram(aes(x=res), bins=nrow(r1Final))
 #### return10 (not fn) final
 ```{r return10}
 # set starting number of obs (n)
-n = 30
+n = 5
 
 # subset data into (1:n) and (n+1, end)
 train <- data %>% filter(Time <= n) %>% select(Time, Return10)
@@ -247,18 +248,24 @@ final <- final %>% mutate(Pred10 = exp(PredReturn10)*lag(Noise10))
 final$Pred10[1] = final$Noise10[1]
 
 # plot Pred10 vs. Time (and print!)
-png(file="Noise10-Pred10_vs_Time.png", width=450, height=450)
+#png(file="Noise10-Pred10_vs_Time.png", width=450, height=450)
 ggplot(data=final) + 
   geom_point(aes(x=Time, y=Pred10), color="blue") +
   geom_point(aes(x=Time, y=Noise10), color="green") + 
   labs(title="Noise10 vs. Time", subtitle="Original (green) and Predicted (blue) data")
-dev.off()
+#dev.off()
 
 # calculate residuals
 final <- final %>% mutate(res = PredReturn10 - Return10)
 
 # plot histogram of residuals
 ggplot(data=final) + geom_histogram(aes(x=res), bins=nrow(final))
+
+# calculate MAPE
+a <- final %>% mutate(MAPE = abs((Noise10-Pred10)/Noise10)) %>% select(MAPE)
+MAPE10 <- (1/nrow(a))*sum(a)
+# OR 
+(1/nrow(final))*sum(abs((final$Noise10-final$Pred10)/final$Noise10))
 ```
 
 #### EXTRA: return10 function to specify n
