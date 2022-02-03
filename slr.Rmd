@@ -216,7 +216,7 @@ ggplot(data=r1Final) + geom_histogram(aes(x=res), bins=nrow(r1Final))
 #### return10 (not fn) final
 ```{r return10}
 # set starting number of obs (n)
-n = 5
+n = 30
 
 # subset data into (1:n) and (n+1, end)
 train <- data %>% filter(Time <= n) %>% select(Time, Return10)
@@ -246,12 +246,13 @@ final <- final %>% mutate(Pred10 = exp(PredReturn10)*lag(Noise10))
 # set first Pred10 to original Noise10 value
 final$Pred10[1] = final$Noise10[1]
 
-# plot Pred10 vs. Time
+# plot Pred10 vs. Time (and print!)
+png(file="Noise10-Pred10_vs_Time.png", width=450, height=450)
 ggplot(data=final) + 
   geom_point(aes(x=Time, y=Pred10), color="blue") +
   geom_point(aes(x=Time, y=Noise10), color="green") + 
   labs(title="Noise10 vs. Time", subtitle="Original (green) and Predicted (blue) data")
-
+dev.off()
 
 # calculate residuals
 final <- final %>% mutate(res = PredReturn10 - Return10)
