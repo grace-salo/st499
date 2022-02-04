@@ -5,19 +5,18 @@ date: "1/28/2022"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
-#knitr::opts_chunk$set(echo = TRUE)
+## Setup
+```{r setup}
+# load packages
 library(ggplot2)
 library(dplyr)
-```
 
-## Import Data
-```{r import}
-data <- read.csv("simulated_data.csv", nrows = 60)
+# import data
+data <- read.csv("simulated_data.csv")
+    # NOTE: data set has 61 (odd # obs)
 colnames(data) <- c('Time', 'Base', 'Noise1', 'Noise5', 'Noise10', 'ReturnBase', 'Return1', 'Return5', 'Return10')
 head(data)
 tail(data)
-    # NOTE: removed last obs to end up with 60 total
 ```
 
 ## EDA
@@ -39,10 +38,8 @@ dev.off()
 ```
 
 
-
-
 ## Model: ReturnBase ~ Time and Prediction
-#### returnbase (not fn) final
+#### returnbase final
 ```{r returnbase}
 # set starting number of obs (n)
 n <- 30
@@ -63,7 +60,7 @@ pred <- predict(object=mod, newdata=test)
 
 # add column to final dataset with predicted values
 final <- data %>% select(Time, Base, ReturnBase) %>% 
-  mutate(PredReturnBase = append(data[1:n, 6], pred))
+  mutate(PredReturnBase = append(data[1:n, "ReturnBase"], pred))
 
 # plot new data with predicted values of ReturnBase in the second half
 ggplot(data=final) + geom_point(aes(x=Time, y=PredReturnBase)) + 
@@ -91,133 +88,149 @@ a <- final %>% mutate(MAPE = abs((Base-PredBase)/Base)) %>% select(MAPE)
 MAPEbase = (1/nrow(a))*sum(a)
 # OR
 (1/nrow(final))*sum(abs((final$Base-final$PredBase)/final$Base))
+
+
+# plot PredReturnBase and ReturnBase vs. Time
+ggplot(data=final) + 
+  geom_line(aes(x=Time, y=append(rep(NA,n), pred)), color="blue") + 
+  geom_point(aes(x=Time, y=ReturnBase), color="green") +
+  labs(title=paste0("Green:  Original n=",nrow(final)," ReturnBase data \nBlue:     Predicted line from n=",(nrow(final)-n)," PredReturnBase data"), subtitle=paste0("model: ReturnBase ~ Time with n=",n), y="ReturnBase;  PredReturnBase")
 ```
 
-
-#### EXTRA: returnbase function to specify n
-```{r returnbase-fn}
-baseReturnFn <- function(n) {
-  # subset data into (1:n) and (n+1, end)
-  train <- data %>% filter(Time <= n) %>% select(Time, ReturnBase)
-  test <- data %>% filter(Time > n) %>% select(Time, ReturnBase)
-  
-  # model ReturnBase ~ Time
-  mod <- lm(ReturnBase ~ Time, data=train)
-  summary(mod)
-  # plot of predicted return values from model
-  ggplot(data=train) + geom_point(aes(x=Time, y=mod$coefficients[1] + mod$coefficients[2]*Time)) + labs(x=c("1st n=",n), y="Predicted values of Return \n from Linear Model", title=c("n=",n,"predicted return from model"), subtitle="model: ReturnBase ~ Time")
-  
-  # predict 2nd part of values
-  pred <- predict(object=mod, newdata=test)
-
-  # add column to final dataset with predicted values
-  final <- data %>% select(Time, ReturnBase)
-  final[3] <- append(data[1:n, 6], pred)
-  colnames(final)[3] <- "PredReturnBase"
-  
-  # calculate residuals (should be 0 for base)
-  final <- final %>% mutate(res = PredReturnBase - ReturnBase)
-  
-  return(final)
-}
-
-# call function: baseReturnFn (provide n)
-n = 30
-baseFinal <- baseReturnFn(n)
-
-# plot new data with predicted values of ReturnBase in the second half
-ggplot(data=baseFinal) + geom_point(aes(x=Time, y=PredReturnBase)) + labs(title=paste0("n=",n," original obs + n=",(nrow(data)-n)," predicted obs of Return"), subtitle="model: ReturnBase ~ Time")
-
-# plot histogram of residuals
-ggplot(data=baseFinal) + geom_histogram(aes(x=res), bins=nrow(baseFinal))
-```
-
-#### EXTRA: observations: n = 30
-```{r returnbase-n30, eval=FALSE}
-# set starting number of obs (n)
-n <- 30
-
-# subset data into (1:n) and (n+1, end)
-base.d30_1 <- data %>% filter(Time <= n) %>% select(Time, ReturnBase)
-base.d30_2 <- data %>% filter(Time > n) %>% select(Time, ReturnBase)
-
-# model ReturnBase ~ Time
-mod <- lm(ReturnBase ~ Time, data=base.d30_1)
-summary(mod)
-# plot of predicted return values from model
-ggplot(data=base.d30_1) + geom_point(aes(x=Time, y=mod$coefficients[1] + mod$coefficients[2]*Time)) + labs(x=c("1st n",n), y="Predicted values of Return \n from Linear Model", title="n=30 predicted return from model", subtitle="model: ReturnBase ~ Time")
-
-# predict 2nd part of values
-pred <- predict(object=mod, newdata=base.d30_2)
-
-# add column to final dataset with predicted values
-base.d30 <- data %>% select(Time, ReturnBase)
-base.d30[3] <- append(data[1:n, 6], pred)
-colnames(base.d30)[3] <- "PredReturnBase"
-# plot new data with predicted values of ReturnBase in the second half
-ggplot(data=base.d30) + geom_point(aes(x=Time, y=PredReturnBase)) + labs(title="n=30 original obs + n=30 predicted obs of Return", subtitle="model: ReturnBase ~ Time")
-
-
-# double-check that pred and data it's replacing are lined up correctly (yes!)
-cbind(data[31:60, 6], pred)
-
-# calculate residuals (should be 0 for base)
-base.d30 <- base.d30 %>% mutate(res = PredReturnBase - ReturnBase)
-# plot histogram of residuals
-ggplot(data=base.d30) + geom_histogram(aes(x=res), bins=nrow(base.d30))
-```
 
 
 
 ## Model: Return1 ~ Time and Prediction
-#### EXTRA: return1 function to specify n
-```{r return1-fn}
-return1Fn <- function(n) {
-  # subset data into (1:n) and (n+1, end)
-  train <- data %>% filter(Time <= n) %>% select(Time, Return1)
-  test <- data %>% filter(Time > n) %>% select(Time, Return1)
-  
-  # model Return1 ~ Time
-  mod <- lm(Return1 ~ Time, data=train)
-  summary(mod)
-  # plot of predicted return values from model
-  ggplot(data=train) + geom_point(aes(x=Time, y=mod$coefficients[1] + mod$coefficients[2]*Time)) + labs(x=c("1st n=",n), y="Predicted values of Return \n from Linear Model", title=c("n=",n,"predicted return from model"), subtitle="model: Return1 ~ Time")
-  
-  # predict 2nd part of values
-  pred <- predict(object=mod, newdata=test)
+#### return1 final
+```{r return1}
+# set starting number of obs (n)
+n = 20
 
-  # add column to final dataset with predicted values
-  final <- data %>% select(Time, Return1)
-  final[3] <- append(data[1:n, 6], pred)
-  colnames(final)[3] <- "PredReturn1"
-  
-  # calculate residuals
-  final <- final %>% mutate(res = PredReturn1 - Return1)
-  
-  return(final)
-}
+# subset data into (1:n) and (n+1, end)
+train <- data %>% filter(Time <= n) %>% select(Time, Return1)
+test <- data %>% filter(Time > n) %>% select(Time, Return1)
 
-# call function: return1Fn (provide n)
-n = 15
-r1Final <- return1Fn(n)
+# model Return1 ~ Time
+mod <- lm(Return1 ~ Time, data=train)
+summary(mod)
+# plot of predicted return values from model
+ggplot(data=train) + geom_point(aes(x=Time, y=mod$coefficients[1] + 
+  mod$coefficients[2]*Time)) + labs(x=paste0("1st n=",n), y="Predicted values of Return \n from Linear Model", title=paste0("n=",n," predicted return from model"), subtitle="model: Return1 ~ Time")
 
-# plot new data with predicted values of Return1 in the second half
-ggplot(data=r1Final) + geom_point(aes(x=Time, y=PredReturn1)) + labs(title=paste0("n=",n," original obs + n=",(nrow(data)-n)," predicted obs of Return"), subtitle="model: Return1 ~ Time")
+
+# predict 2nd part of values
+pred <- predict(object=mod, newdata=test)
+
+# add column to final dataset with predicted values
+final <- data %>% select(Time, Noise1, Return1) %>% 
+  mutate(PredReturn1 = append(data[1:n, "Return1"], pred))
+
+# plot new data with predicted values of ReturnBase in the second half
+ggplot(data=final) + geom_point(aes(x=Time, y=PredReturn1)) + 
+  labs(title=paste0("n=",n," original obs + n=",(nrow(data)-n)," predicted obs of Return"), subtitle="model: Return1 ~ Time")
+
+# create Pred1 from exp(PredReturn1[i])*Noise1[i-1]
+final <- final %>% mutate(Pred1 = exp(PredReturn1)*lag(Noise1))
+# set first Pred1 to original Noise1 value
+final$Pred1[1] = final$Noise1[1]
+
+# plot Pred1 vs. Time (and print!)
+#png(file="Noise1-Pred1_vs_Time.png", width=450, height=450)
+ggplot(data=final) + 
+  geom_point(aes(x=Time, y=Pred1), color="blue") +
+  geom_point(aes(x=Time, y=Noise1), color="green") + 
+  labs(title="Noise1 vs. Time", subtitle="Original (green) and Predicted (blue) data")
+#dev.off()
+
+# calculate residuals
+final <- final %>% mutate(res = PredReturn1 - Return1)
 
 # plot histogram of residuals
-ggplot(data=r1Final) + geom_histogram(aes(x=res), bins=nrow(r1Final))
+ggplot(data=final) + geom_histogram(aes(x=res), bins=nrow(final))
+
+# calculate MAPE
+a <- final %>% mutate(MAPE = abs((Noise1-Pred1)/Noise1)) %>% select(MAPE)
+MAPE1 <- (1/nrow(a))*sum(a)
+# OR 
+(1/nrow(final))*sum(abs((final$Noise1-final$Pred1)/final$Noise1))
+
+
+# plot PredReturn1 and Return1 vs. Time
+ggplot(data=final) + 
+  geom_line(aes(x=Time, y=append(rep(NA,n), pred)), color="blue") + 
+  geom_point(aes(x=Time, y=Return1), color="green") +
+  labs(title=paste0("Green:  Original n=",nrow(final)," Return1 data \nBlue:     Predicted line from n=",(nrow(final)-n)," PredReturn1 data"), subtitle=paste0("model: Return1 ~ Time with n=",n), y="Return1;  PredReturn1")
 ```
 
 
 ## Model: Return5 ~ Time and Prediction
+#### return5 final
+```{r return5}
+# set starting number of obs (n)
+n = 20
+
+# subset data into (1:n) and (n+1, end)
+train <- data %>% filter(Time <= n) %>% select(Time, Return5)
+test <- data %>% filter(Time > n) %>% select(Time, Return5)
+
+# model Return5 ~ Time
+mod <- lm(Return5 ~ Time, data=train)
+summary(mod)
+# plot of predicted return values from model
+ggplot(data=train) + geom_point(aes(x=Time, y=mod$coefficients[1] + 
+  mod$coefficients[2]*Time)) + labs(x=paste0("1st n=",n), y="Predicted values of Return \n from Linear Model", title=paste0("n=",n," predicted return from model"), subtitle="model: Return5 ~ Time")
+
+
+# predict 2nd part of values
+pred <- predict(object=mod, newdata=test)
+
+# add column to final dataset with predicted values
+final <- data %>% select(Time, Noise5, Return5) %>% 
+  mutate(PredReturn5 = append(data[1:n, "Return5"], pred))
+
+# plot new data with predicted values of ReturnBase in the second half
+ggplot(data=final) + geom_point(aes(x=Time, y=PredReturn5)) + 
+  labs(title=paste0("n=",n," original obs + n=",(nrow(data)-n)," predicted obs of Return"), subtitle="model: Return5 ~ Time")
+
+# create Pred5 from exp(PredReturn5[i])*Noise5[i-1]
+final <- final %>% mutate(Pred5 = exp(PredReturn5)*lag(Noise5))
+# set first Pred5 to original Noise5 value
+final$Pred5[1] = final$Noise5[1]
+
+# plot Pred5 vs. Time
+ggplot(data=final) + 
+  geom_point(aes(x=Time, y=Pred5), color="blue") +
+  geom_point(aes(x=Time, y=Noise5), color="green") + 
+  labs(title="Noise5 vs. Time", subtitle="Original (green) and Predicted (blue) data")
+
+# calculate residuals
+final <- final %>% mutate(res = PredReturn5 - Return5)
+
+# plot histogram of residuals
+ggplot(data=final) + geom_histogram(aes(x=res), bins=nrow(final))
+
+# calculate MAPE
+a <- final %>% mutate(MAPE = abs((Noise5-Pred5)/Noise5)) %>% select(MAPE)
+MAPE5 <- (1/nrow(a))*sum(a)
+# OR 
+(1/nrow(final))*sum(abs((final$Noise5-final$Pred5)/final$Noise5))
+
+
+# plot PredReturn5 and Return5 vs. Time
+ggplot(data=final) + 
+  geom_line(aes(x=Time, y=append(rep(NA,n), pred)), color="blue") + 
+  geom_point(aes(x=Time, y=Return5), color="green") +
+  labs(title=paste0("Green:  Original n=",nrow(final)," Return5 data \nBlue:     Predicted line from n=",(nrow(final)-n)," PredReturn5 data"), subtitle=paste0("model: Return5 ~ Time with n=",n), y="Return5; PredReturn5")
+```
+
 
 
 
 ## Model: Return10 ~ Time and Prediction
-#### return10 (not fn) final
+#### return10 final
 ```{r return10}
 # set starting number of obs (n)
-n = 5
+n = 20
 
 # subset data into (1:n) and (n+1, end)
 train <- data %>% filter(Time <= n) %>% select(Time, Return10)
@@ -236,7 +249,7 @@ pred <- predict(object=mod, newdata=test)
 
 # add column to final dataset with predicted values
 final <- data %>% select(Time, Noise10, Return10) %>% 
-  mutate(PredReturn10 = append(data[1:n, 6], pred))
+  mutate(PredReturn10 = append(data[1:n, "Return10"], pred))
 
 # plot new data with predicted values of ReturnBase in the second half
 ggplot(data=final) + geom_point(aes(x=Time, y=PredReturn10)) + 
@@ -266,47 +279,350 @@ a <- final %>% mutate(MAPE = abs((Noise10-Pred10)/Noise10)) %>% select(MAPE)
 MAPE10 <- (1/nrow(a))*sum(a)
 # OR 
 (1/nrow(final))*sum(abs((final$Noise10-final$Pred10)/final$Noise10))
+
+
+# plot PredReturn10 and Return10 vs. Time
+#png(file="PredReturn10_Return10_obs30.png", width=450, height=450)
+ggplot(data=final) + 
+  geom_line(aes(x=Time, y=append(rep(NA,n), pred)), color="blue") + 
+  geom_point(aes(x=Time, y=Return10), color="green") +
+  labs(title=paste0("Green:  Original n=",nrow(final)," Return10 data \nBlue:     Predicted line from n=",(nrow(final)-n)," PredReturn10 data"), subtitle=paste0("model: Return10 ~ Time with n=",n), y="Return10;  PredReturn10")
+#dev.off()
 ```
 
-#### EXTRA: return10 function to specify n
-```{r return10-fn}
-return10Fn <- function(n) {
-  # subset data into (1:n) and (n+1, end)
-  train <- data %>% filter(Time <= n) %>% select(Time, Return10)
-  test <- data %>% filter(Time > n) %>% select(Time, Return10)
+
+
+```{r test}
+# plan: create MAPE matrix from original 4 datasets (aka simulated_data.csv)
+nobs = c(30, 25, 20, 15, 10, 5)
+MAPEbase.all = data.frame('nobs'=nobs)
+
+count = 0
+MAPEbase = vector()
+for(i in nobs) {
+  count = count + 1
+  # set starting number of obs (n)
+  n = i
   
-  # model Return10 ~ Time
-  mod <- lm(Return10 ~ Time, data=train)
-  summary(mod)
-  # plot of predicted return values from model
-  ggplot(data=train) + geom_point(aes(x=Time, y=mod$coefficients[1] + mod$coefficients[2]*Time)) + labs(x=c("1st n=",n), y="Predicted values of Return \n from Linear Model", title=c("n=",n,"predicted return from model"), subtitle="model: Return10 ~ Time")
+  # subset data into (1:n) and (n+1, end)
+  train <- data %>% filter(Time <= n) %>% select(Time, ReturnBase)
+  test <- data %>% filter(Time > n) %>% select(Time, ReturnBase)
+  
+  # model ReturnBase ~ Time
+  mod <- lm(ReturnBase ~ Time, data=train)
   
   # predict 2nd part of values
   pred <- predict(object=mod, newdata=test)
-
+  
   # add column to final dataset with predicted values
-  final <- data %>% select(Time, Return10)
-  final[3] <- append(data[1:n, 6], pred)
-  colnames(final)[3] <- "PredReturn10"
+  final <- data %>% select(Time, Base, ReturnBase) %>% 
+    mutate(PredReturnBase = append(data[1:n, "ReturnBase"], pred))
   
-  # calculate residuals
-  final <- final %>% mutate(res = PredReturn10 - Return10)
+  # create PredBase from exp(PredReturnBase[i])*Base[i-1]
+  final <- final %>% mutate(PredBase = exp(PredReturnBase)*lag(Base))
+  # set first PredBase to original Base value
+  final$PredBase[1] = final$Base[1]
   
-  return(final)
+  # calculate residuals (should be 0 for base)
+  final <- final %>% mutate(res = PredReturnBase - ReturnBase)
+  
+  # calculate MAPE
+  a <- final %>% mutate(MAPE = abs((Base-PredBase)/Base)) %>% select(MAPE)
+  MAPE = (1/nrow(a))*sum(a)
+  
+  # add MAPE to vector
+  MAPEbase = c(MAPEbase,MAPE)
 }
+MAPEbase
+MAPEbase.all <- MAPEbase.all %>% mutate('MAPEbase' = MAPEbase)
+MAPEbase.all
 
-# call function: return10Fn (provide n)
-n=5
-r10Final <- return10Fn(n)
 
-# plot new data with predicted values of Return10 in the second half
-ggplot(data=r10Final) + geom_point(aes(x=Time, y=PredReturn10)) + labs(title=paste0("n=",n," original obs + n=",(nrow(data)-n)," predicted obs of Return"), subtitle="model: Return10 ~ Time")
+# create fn for PredBase
+        # PROBLEM: can't pass column/dataframe names as arguments
+reconstFn <- function(data, return, orig) {
+  a <- list()
+  for(i in 1:nrow(data)) {
+    if(i==1) {
+      b <- data %>% slice(i) %>% mutate(PredBase = {{orig}}) %>% select(PredBase)
+      a <- append(a,b)
+    }
+    else {
+      b <- data %>% slice(i) %>% mutate(PredBase = exp({{col}})*lag({{orig}})) %>% select(PredBase) 
+      a <- append(a, b)
+    }
+  }
+  data <- mutate(newCol = a)
+  return(data)
+}
+a <- reconstFn(base.d20, PredReturnBase, Base)
 
-# plot histogram of residuals
-ggplot(data=r10Final) + geom_histogram(aes(x=res), bins=nrow(r10Final))
+reconstFn(base.d20, PredReturnBase, Base)
+b <- base.d20  %>% select(PredReturnBase) %>% slice(3) %>% mutate(newCol = exp(PredReturnBase))
+base.d20 <- base.d20 %>% mutate(PredBase = reconstFn(data, PredReturnBase))
 ```
 
+```{r}
 
+# set starting number of obs (n)
+n <- 25
+
+# subset data into (1:n) and (n+1, end)
+train <- data %>% filter(Time <= n) %>% select(Time, ReturnBase)
+test <- data %>% filter(Time > n) %>% select(Time, ReturnBase)
+
+# model ReturnBase ~ Time
+mod <- lm(ReturnBase ~ Time, data=train)
+summary(mod)
+# plot of predicted return values from model
+ggplot(data=train) + geom_point(aes(x=Time, y=mod$coefficients[1] + 
+  mod$coefficients[2]*Time)) + labs(x=paste0("1st n=",n), y="Predicted values of Return \n from Linear Model", title=paste0("n=",n," predicted return from model"), subtitle="model: ReturnBase ~ Time")
+
+# predict 2nd part of values
+pred <- predict(object=mod, newdata=test)
+
+# add column to final dataset with predicted values
+final <- data %>% select(Time, Base, ReturnBase) %>% 
+  mutate(PredReturnBase = append(data[1:n, "ReturnBase"], pred))
+
+# plot new data with predicted values of ReturnBase in the second half
+ggplot(data=final) + geom_point(aes(x=Time, y=PredReturnBase)) + 
+  labs(title=paste0("n=",n," original obs + n=",(nrow(data)-n)," predicted obs of Return"), subtitle="model: ReturnBase ~ Time")
+
+# create PredBase from exp(PredReturnBase[i])*Base[i-1]
+final <- final %>% mutate(PredBase = exp(PredReturnBase)*lag(Base))
+# set first PredBase to original Base value
+final$PredBase[1] = final$Base[1]
+
+# plot PredBase vs. Time
+ggplot(data=final) + 
+  geom_point(aes(x=Time, y=PredBase), color="blue") +
+  geom_point(aes(x=Time, y=Base), color="green") + 
+  labs(title="Base vs. Time", subtitle="Original (green) and Predicted (blue) data")
+
+# calculate residuals (should be 0 for base)
+final <- final %>% mutate(res = PredReturnBase - ReturnBase)
+
+# plot histogram of residuals
+ggplot(data=final) + geom_histogram(aes(x=res), bins=nrow(final))
+
+# calculate MAPE
+a <- final %>% mutate(MAPE = abs((Base-PredBase)/Base)) %>% select(MAPE)
+MAPEbase.25 = (1/nrow(a))*sum(a)
+# OR
+(1/nrow(final))*sum(abs((final$Base-final$PredBase)/final$Base))
+
+
+# plot PredReturnBase and ReturnBase vs. Time
+ggplot(data=final) + 
+  geom_line(aes(x=Time, y=append(rep(NA,n), pred)), color="blue") + 
+  geom_point(aes(x=Time, y=ReturnBase), color="green") +
+  labs(title=paste0("Green:  Original n=",nrow(final)," ReturnBase data \nBlue:     Predicted line from n=",(nrow(final)-n)," PredReturnBase data"), subtitle=paste0("model: ReturnBase ~ Time with n=",n), y="ReturnBase;  PredReturnBase")
+
+
+
+# set starting number of obs (n)
+n <- 20
+
+# subset data into (1:n) and (n+1, end)
+train <- data %>% filter(Time <= n) %>% select(Time, ReturnBase)
+test <- data %>% filter(Time > n) %>% select(Time, ReturnBase)
+
+# model ReturnBase ~ Time
+mod <- lm(ReturnBase ~ Time, data=train)
+summary(mod)
+# plot of predicted return values from model
+ggplot(data=train) + geom_point(aes(x=Time, y=mod$coefficients[1] + 
+  mod$coefficients[2]*Time)) + labs(x=paste0("1st n=",n), y="Predicted values of Return \n from Linear Model", title=paste0("n=",n," predicted return from model"), subtitle="model: ReturnBase ~ Time")
+
+# predict 2nd part of values
+pred <- predict(object=mod, newdata=test)
+
+# add column to final dataset with predicted values
+final <- data %>% select(Time, Base, ReturnBase) %>% 
+  mutate(PredReturnBase = append(data[1:n, "ReturnBase"], pred))
+
+# plot new data with predicted values of ReturnBase in the second half
+ggplot(data=final) + geom_point(aes(x=Time, y=PredReturnBase)) + 
+  labs(title=paste0("n=",n," original obs + n=",(nrow(data)-n)," predicted obs of Return"), subtitle="model: ReturnBase ~ Time")
+
+# create PredBase from exp(PredReturnBase[i])*Base[i-1]
+final <- final %>% mutate(PredBase = exp(PredReturnBase)*lag(Base))
+# set first PredBase to original Base value
+final$PredBase[1] = final$Base[1]
+
+# plot PredBase vs. Time
+ggplot(data=final) + 
+  geom_point(aes(x=Time, y=PredBase), color="blue") +
+  geom_point(aes(x=Time, y=Base), color="green") + 
+  labs(title="Base vs. Time", subtitle="Original (green) and Predicted (blue) data")
+
+# calculate residuals (should be 0 for base)
+final <- final %>% mutate(res = PredReturnBase - ReturnBase)
+
+# plot histogram of residuals
+ggplot(data=final) + geom_histogram(aes(x=res), bins=nrow(final))
+
+# calculate MAPE
+a <- final %>% mutate(MAPE = abs((Base-PredBase)/Base)) %>% select(MAPE)
+MAPEbase.20 = (1/nrow(a))*sum(a)
+# OR
+(1/nrow(final))*sum(abs((final$Base-final$PredBase)/final$Base))
+
+
+
+# set starting number of obs (n)
+n <- 15
+
+# subset data into (1:n) and (n+1, end)
+train <- data %>% filter(Time <= n) %>% select(Time, ReturnBase)
+test <- data %>% filter(Time > n) %>% select(Time, ReturnBase)
+
+# model ReturnBase ~ Time
+mod <- lm(ReturnBase ~ Time, data=train)
+summary(mod)
+# plot of predicted return values from model
+ggplot(data=train) + geom_point(aes(x=Time, y=mod$coefficients[1] + 
+  mod$coefficients[2]*Time)) + labs(x=paste0("1st n=",n), y="Predicted values of Return \n from Linear Model", title=paste0("n=",n," predicted return from model"), subtitle="model: ReturnBase ~ Time")
+
+# predict 2nd part of values
+pred <- predict(object=mod, newdata=test)
+
+# add column to final dataset with predicted values
+final <- data %>% select(Time, Base, ReturnBase) %>% 
+  mutate(PredReturnBase = append(data[1:n, "ReturnBase"], pred))
+
+# plot new data with predicted values of ReturnBase in the second half
+ggplot(data=final) + geom_point(aes(x=Time, y=PredReturnBase)) + 
+  labs(title=paste0("n=",n," original obs + n=",(nrow(data)-n)," predicted obs of Return"), subtitle="model: ReturnBase ~ Time")
+
+# create PredBase from exp(PredReturnBase[i])*Base[i-1]
+final <- final %>% mutate(PredBase = exp(PredReturnBase)*lag(Base))
+# set first PredBase to original Base value
+final$PredBase[1] = final$Base[1]
+
+# plot PredBase vs. Time
+ggplot(data=final) + 
+  geom_point(aes(x=Time, y=PredBase), color="blue") +
+  geom_point(aes(x=Time, y=Base), color="green") + 
+  labs(title="Base vs. Time", subtitle="Original (green) and Predicted (blue) data")
+
+# calculate residuals (should be 0 for base)
+final <- final %>% mutate(res = PredReturnBase - ReturnBase)
+
+# plot histogram of residuals
+ggplot(data=final) + geom_histogram(aes(x=res), bins=nrow(final))
+
+# calculate MAPE
+a <- final %>% mutate(MAPE = abs((Base-PredBase)/Base)) %>% select(MAPE)
+MAPEbase.15 = (1/nrow(a))*sum(a)
+# OR
+(1/nrow(final))*sum(abs((final$Base-final$PredBase)/final$Base))
+
+
+
+# set starting number of obs (n)
+n <- 10
+
+# subset data into (1:n) and (n+1, end)
+train <- data %>% filter(Time <= n) %>% select(Time, ReturnBase)
+test <- data %>% filter(Time > n) %>% select(Time, ReturnBase)
+
+# model ReturnBase ~ Time
+mod <- lm(ReturnBase ~ Time, data=train)
+summary(mod)
+# plot of predicted return values from model
+ggplot(data=train) + geom_point(aes(x=Time, y=mod$coefficients[1] + 
+  mod$coefficients[2]*Time)) + labs(x=paste0("1st n=",n), y="Predicted values of Return \n from Linear Model", title=paste0("n=",n," predicted return from model"), subtitle="model: ReturnBase ~ Time")
+
+# predict 2nd part of values
+pred <- predict(object=mod, newdata=test)
+
+# add column to final dataset with predicted values
+final <- data %>% select(Time, Base, ReturnBase) %>% 
+  mutate(PredReturnBase = append(data[1:n, "ReturnBase"], pred))
+
+# plot new data with predicted values of ReturnBase in the second half
+ggplot(data=final) + geom_point(aes(x=Time, y=PredReturnBase)) + 
+  labs(title=paste0("n=",n," original obs + n=",(nrow(data)-n)," predicted obs of Return"), subtitle="model: ReturnBase ~ Time")
+
+# create PredBase from exp(PredReturnBase[i])*Base[i-1]
+final <- final %>% mutate(PredBase = exp(PredReturnBase)*lag(Base))
+# set first PredBase to original Base value
+final$PredBase[1] = final$Base[1]
+
+# plot PredBase vs. Time
+ggplot(data=final) + 
+  geom_point(aes(x=Time, y=PredBase), color="blue") +
+  geom_point(aes(x=Time, y=Base), color="green") + 
+  labs(title="Base vs. Time", subtitle="Original (green) and Predicted (blue) data")
+
+# calculate residuals (should be 0 for base)
+final <- final %>% mutate(res = PredReturnBase - ReturnBase)
+
+# plot histogram of residuals
+ggplot(data=final) + geom_histogram(aes(x=res), bins=nrow(final))
+
+# calculate MAPE
+a <- final %>% mutate(MAPE = abs((Base-PredBase)/Base)) %>% select(MAPE)
+MAPEbase.10 = (1/nrow(a))*sum(a)
+# OR
+(1/nrow(final))*sum(abs((final$Base-final$PredBase)/final$Base))
+
+
+
+# set starting number of obs (n)
+n <- 5
+
+# subset data into (1:n) and (n+1, end)
+train <- data %>% filter(Time <= n) %>% select(Time, ReturnBase)
+test <- data %>% filter(Time > n) %>% select(Time, ReturnBase)
+
+# model ReturnBase ~ Time
+mod <- lm(ReturnBase ~ Time, data=train)
+summary(mod)
+# plot of predicted return values from model
+ggplot(data=train) + geom_point(aes(x=Time, y=mod$coefficients[1] + 
+  mod$coefficients[2]*Time)) + labs(x=paste0("1st n=",n), y="Predicted values of Return \n from Linear Model", title=paste0("n=",n," predicted return from model"), subtitle="model: ReturnBase ~ Time")
+
+# predict 2nd part of values
+pred <- predict(object=mod, newdata=test)
+
+# add column to final dataset with predicted values
+final <- data %>% select(Time, Base, ReturnBase) %>% 
+  mutate(PredReturnBase = append(data[1:n, "ReturnBase"], pred))
+
+# plot new data with predicted values of ReturnBase in the second half
+ggplot(data=final) + geom_point(aes(x=Time, y=PredReturnBase)) + 
+  labs(title=paste0("n=",n," original obs + n=",(nrow(data)-n)," predicted obs of Return"), subtitle="model: ReturnBase ~ Time")
+
+# create PredBase from exp(PredReturnBase[i])*Base[i-1]
+final <- final %>% mutate(PredBase = exp(PredReturnBase)*lag(Base))
+# set first PredBase to original Base value
+final$PredBase[1] = final$Base[1]
+
+# plot PredBase vs. Time
+ggplot(data=final) + 
+  geom_point(aes(x=Time, y=PredBase), color="blue") +
+  geom_point(aes(x=Time, y=Base), color="green") + 
+  labs(title="Base vs. Time", subtitle="Original (green) and Predicted (blue) data")
+
+# calculate residuals (should be 0 for base)
+final <- final %>% mutate(res = PredReturnBase - ReturnBase)
+
+# plot histogram of residuals
+ggplot(data=final) + geom_histogram(aes(x=res), bins=nrow(final))
+
+# calculate MAPE
+a <- final %>% mutate(MAPE = abs((Base-PredBase)/Base)) %>% select(MAPE)
+MAPEbase.5 = (1/nrow(a))*sum(a)
+# OR
+(1/nrow(final))*sum(abs((final$Base-final$PredBase)/final$Base))
+
+
+
+MAPEbase.all = append(MAPEbase.30, MAPEbase.25, MAPEbase.20, MAPEbase.15, MAPEbase.10, MAPEbase.5)
+```
 
 
 
