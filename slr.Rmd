@@ -230,7 +230,7 @@ ggplot(data=final) +
 #### return10 final
 ```{r return10}
 # set starting number of obs (n)
-n = 20
+n = 5
 
 # subset data into (1:n) and (n+1, end)
 train <- data %>% filter(Time <= n) %>% select(Time, Return10)
@@ -292,11 +292,14 @@ ggplot(data=final) +
 
 
 
+## Create MAPE matrix from original 4 datasets (simulated_data.csv)
 ```{r test}
-# plan: create MAPE matrix from original 4 datasets (aka simulated_data.csv)
-nobs = c(30, 25, 20, 15, 10, 5)
-MAPEbase.all = data.frame('nobs'=nobs)
+#nobs = c(30, 25, 20, 15, 10, 5)
+#nobs = c(30, 25, 20, 15, 10, 9, 8, 7, 6, 5)
+nobs = c(30:5)
+MAPE.all = data.frame('nobs'=nobs)
 
+# MAPEbase
 count = 0
 MAPEbase = vector()
 for(i in nobs) {
@@ -333,10 +336,156 @@ for(i in nobs) {
   # add MAPE to vector
   MAPEbase = c(MAPEbase,MAPE)
 }
-MAPEbase
-MAPEbase.all <- MAPEbase.all %>% mutate('MAPEbase' = MAPEbase)
-MAPEbase.all
+MAPE.all <- MAPE.all %>% mutate('MAPEbase' = MAPEbase)
 
+
+# MAPE1
+count = 0
+MAPE1 = vector()
+for(i in nobs) {
+  count = count + 1
+  # set starting number of obs (n)
+  n = i
+  
+  # subset data into (1:n) and (n+1, end)
+  train <- data %>% filter(Time <= n) %>% select(Time, Return1)
+  test <- data %>% filter(Time > n) %>% select(Time, Return1)
+  
+  # model Return1 ~ Time
+  mod <- lm(Return1 ~ Time, data=train)
+  
+  # predict 2nd part of values
+  pred <- predict(object=mod, newdata=test)
+  
+  # add column to final dataset with predicted values
+  final <- data %>% select(Time, Noise1, Return1) %>% 
+    mutate(PredReturn1 = append(data[1:n, "Return1"], pred))
+  
+  # create Pred1
+  final <- final %>% mutate(Pred1 = exp(PredReturn1)*lag(Noise1))
+  # set first Pred1 to original Noise1 value
+  final$Pred1[1] = final$Noise1[1]
+  
+  # calculate residuals (should be 0 for base)
+  final <- final %>% mutate(res = PredReturn1 - Return1)
+  
+  # calculate MAPE
+  a <- final %>% mutate(MAPE = abs((Noise1-Pred1)/Noise1)) %>% select(MAPE)
+  MAPE = (1/nrow(a))*sum(a)
+  
+  # add MAPE to vector
+  MAPE1 = c(MAPE1,MAPE)
+}
+MAPE.all <- MAPE.all %>% mutate('MAPE1' = MAPE1)
+
+
+# MAPE5
+count = 0
+MAPE5 = vector()
+for(i in nobs) {
+  count = count + 1
+  # set starting number of obs (n)
+  n = i
+  
+  # subset data into (1:n) and (n+1, end)
+  train <- data %>% filter(Time <= n) %>% select(Time, Return5)
+  test <- data %>% filter(Time > n) %>% select(Time, Return5)
+  
+  # model Return5 ~ Time
+  mod <- lm(Return5 ~ Time, data=train)
+  
+  # predict 2nd part of values
+  pred <- predict(object=mod, newdata=test)
+  
+  # add column to final dataset with predicted values
+  final <- data %>% select(Time, Noise5, Return5) %>% 
+    mutate(PredReturn5 = append(data[1:n, "Return5"], pred))
+  
+  # create Pred5
+  final <- final %>% mutate(Pred5 = exp(PredReturn5)*lag(Noise5))
+  # set first Pred5 to original Noise5 value
+  final$Pred5[1] = final$Noise5[1]
+  
+  # calculate residuals (should be 0 for base)
+  final <- final %>% mutate(res = PredReturn5 - Return5)
+  
+  # calculate MAPE
+  a <- final %>% mutate(MAPE = abs((Noise5-Pred5)/Noise5)) %>% select(MAPE)
+  MAPE = (1/nrow(a))*sum(a)
+  
+  # add MAPE to vector
+  MAPE5 = c(MAPE5,MAPE)
+}
+MAPE.all <- MAPE.all %>% mutate('MAPE5' = MAPE5)
+
+
+# MAPE10
+count = 0
+MAPE10 = vector()
+for(i in nobs) {
+  count = count + 1
+  # set starting number of obs (n)
+  n = i
+  
+  # subset data into (1:n) and (n+1, end)
+  train <- data %>% filter(Time <= n) %>% select(Time, Return10)
+  test <- data %>% filter(Time > n) %>% select(Time, Return10)
+  
+  # model Return10 ~ Time
+  mod <- lm(Return10 ~ Time, data=train)
+  
+  # predict 2nd part of values
+  pred <- predict(object=mod, newdata=test)
+  
+  # add column to final dataset with predicted values
+  final <- data %>% select(Time, Noise10, Return10) %>% 
+    mutate(PredReturn10 = append(data[1:n, "Return10"], pred))
+  
+  # create Pred10
+  final <- final %>% mutate(Pred10 = exp(PredReturn10)*lag(Noise10))
+  # set first Pred10 to original Noise10 value
+  final$Pred10[1] = final$Noise10[1]
+  
+  # calculate residuals (should be 0 for base)
+  final <- final %>% mutate(res = PredReturn10 - Return10)
+  
+  # calculate MAPE
+  a <- final %>% mutate(MAPE = abs((Noise10-Pred10)/Noise10)) %>% select(MAPE)
+  MAPE = (1/nrow(a))*sum(a)
+  
+  print(MAPE)
+  # add MAPE to vector
+  MAPE10 = c(MAPE10,MAPE)
+}
+MAPE.all <- MAPE.all %>% mutate('MAPE10' = MAPE10)
+MAPE.all
+
+# plot
+png(file="MAPE_base-1-5-10.png", width=450, height=450)
+ggplot(data=MAPE.all) + 
+  geom_point(aes(x=nobs, y=MAPEbase), color="yellow") + 
+  geom_line(aes(x=nobs, y=MAPEbase), color="yellow") + 
+  geom_point(aes(x=nobs, y=MAPE1), color="green") +
+  geom_line(aes(x=nobs, y=MAPE1), color="green") + 
+  geom_point(aes(x=nobs, y=MAPE5), color="blue") + 
+  geom_line(aes(x=nobs, y=MAPE5), color="blue") +
+  geom_point(aes(x=nobs, y=MAPE10), color="purple") + 
+  geom_line(aes(x=nobs, y=MAPE10), color="purple") + 
+  labs(title="MAPEbase, MAPE1, MAPE5, MAPE10 as obs increases", subtitle="obs # is the amount of original data from which model is based", caption="MAPEbase=yellow,  MAPE1=green,  MAPE5=blue,  MAPE10=purple")
+dev.off()
+
+# MAPEbase
+ggplot(data=MAPE.all) + geom_point(aes(x=nobs, y=MAPEbase)) + geom_line(aes(x=nobs, y=MAPEbase))
+
+# MAPE1
+ggplot(data=MAPE.all) + geom_point(aes(x=nobs, y=MAPE1)) + geom_line(aes(x=nobs, y=MAPE1))
+
+# MAPE5
+ggplot(data=MAPE.all) + geom_point(aes(x=nobs, y=MAPE5)) + geom_line(aes(x=nobs, y=MAPE5))
+
+# MAPE10
+ggplot(data=MAPE.all) + geom_point(aes(x=nobs, y=MAPE10)) + geom_line(aes(x=nobs, y=MAPE10))
+```
 
 # create fn for PredBase
         # PROBLEM: can't pass column/dataframe names as arguments
